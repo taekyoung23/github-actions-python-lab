@@ -1,0 +1,1 @@
+print("EC2 deployed python application running")
