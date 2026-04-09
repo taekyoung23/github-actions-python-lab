@@ -25,11 +25,23 @@ jobs:
       - name: EC2에서 패키지 설치 및 Flask 실행
         run: |
           ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            # 1. 패키지 목록 업데이트 및 가상환경 도구 설치
             sudo apt update
-            sudo apt install -y python3-pip
-            pip3 install -r requirements.txt
-            # 기존에 실행 중인 플라스크가 있다면 종료 (포트 충돌 방지)
+            sudo apt install -y python3-pip python3-venv
+
+            # 2. 가상환경(venv) 생성 (폴더가 없을 때만 생성)
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+
+            # 3. 가상환경 내부의 pip를 사용하여 패키지 설치 (시스템 환경 보호)
+            ./venv/bin/pip install --upgrade pip
+            ./venv/bin/pip install -r requirements.txt
+
+            # 4. 기존에 실행 중인 Flask 프로세스 종료 (포트 충돌 방지)
             pkill -f flask_app.py || true
-            # 백그라운드에서 Flask 실행
-            nohup python3 flask_app.py > flask.log 2>&1 &
+
+            # 5. 가상환경의 python3를 사용하여 백그라운드에서 실행
+            # 로그는 flask.log 파일에 저장됩니다.
+            nohup ./venv/bin/python3 flask_app.py > flask.log 2>&1 &
           EOF
