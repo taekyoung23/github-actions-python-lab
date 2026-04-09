@@ -1,0 +1,35 @@
+name: 09 Flask Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 저장소 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: SSH 키 설정
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+
+      - name: 파일 전송 (flask_app.py 및 requirements.txt)
+        run: |
+          scp -o StrictHostKeyChecking=no -i private_key.pem flask_app.py requirements.txt ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/
+
+      - name: EC2에서 패키지 설치 및 Flask 실행
+        run: |
+          ssh -o StrictHostKeyChecking=no -i private_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            sudo apt update
+            sudo apt install -y python3-pip
+            pip3 install -r requirements.txt
+            # 기존에 실행 중인 플라스크가 있다면 종료 (포트 충돌 방지)
+            pkill -f flask_app.py || true
+            # 백그라운드에서 Flask 실행
+            nohup python3 flask_app.py > flask.log 2>&1 &
+          EOF
